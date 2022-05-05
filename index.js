@@ -2,9 +2,9 @@ import express, { json } from "express";
 import dotenv from "dotenv";
 import { MongoClient } from "mongodb";
 import joi from "joi";
-import dayjs from "dayjs";
 import cors from "cors";
 import chalk from "chalk";
+import bcrypt from 'bcrypt';
 
 const app = express();
 app.use(json());
@@ -32,13 +32,13 @@ app.post("/sign-up", async (req, res) => {
     console.log(error);
     return res.sendStatus(422);
   }
-
+  const senhaHash = bcrypt.hashSync(cliente.senha, 10);
   try {
-    const clienteExiste = await db.collection("clientes").findOne({ name: cliente.name });
+    const clienteExiste = await db.collection("clientes").findOne({ name: cliente.nome });
     if (clienteExiste) {
       return res.sendStatus(409);
     }
-    await db.collection("clientes").insertOne({name: cliente.name, email: cliente.email, senha: cliente.name });
+    await db.collection("clientes").insertOne({name: cliente.name, email: cliente.email, senha: senhaHash });
     console.log(chalk.green.bold("Cliente cadastrado no banco de dados"));
     res.sendStatus(201);
 
@@ -47,6 +47,17 @@ app.post("/sign-up", async (req, res) => {
     return res.status(500).send("Erro ao registrar o usuário!", e);
   }
 
+});
+
+app.post("/sign-in", async (req, res) => {
+    const { email, senha } = req.body;
+    const user = await db.collection('clientes').findOne({ email });
+    console.log(user.senha);
+    if(user && bcrypt.compareSync(senha, user.senha)) {
+        console.log(chalk.redBright.bold("sucesso, usuário encontrado com este email e senha!"));
+    } else {
+        console.log(chalk.red.bold("usuário não encontrado (email ou senha incorretos)"));
+    }
 });
 
 const port = process.env.PORT || 5000;
